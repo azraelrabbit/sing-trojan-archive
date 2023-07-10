@@ -1,57 +1,59 @@
-package buf2
+package buffer
 
 import (
+	"net/netip"
 	"strconv"
 	"sync"
 )
 
 var bufferPool = sync.Pool{
 	New: func() any {
-		return &Buffer{}
+		return &PacketBuffer{}
 	},
 }
 
-type Buffer struct {
-	start int
-	end   int
-	chunk *Chunk
+type PacketBuffer struct {
+	Destination netip.AddrPort
+	start       int
+	end         int
+	chunk       *Chunk
 }
 
-func New(capacity int) *Buffer {
+func New(capacity int) *PacketBuffer {
 	chunk := NewChunk(capacity)
-	buffer := bufferPool.Get().(*Buffer)
-	*buffer = Buffer{chunk: chunk}
+	buffer := bufferPool.Get().(*PacketBuffer)
+	*buffer = PacketBuffer{chunk: chunk}
 	return buffer
 }
 
-func From(data []byte) *Buffer {
+func From(data []byte) *PacketBuffer {
 	buffer := New(len(data))
 	buffer.Write(data)
 	return buffer
 }
 
-func (b *Buffer) Cut(start int, end int) *Buffer {
+func (b *PacketBuffer) Cut(start int, end int) *PacketBuffer {
 	if b == nil {
 		panic("cannot cut a nil view")
 	}
 	b.chunk.IncRef()
-	newBuffer := bufferPool.Get().(*Buffer)
+	newBuffer := bufferPool.Get().(*PacketBuffer)
 	newBuffer.chunk = b.chunk
 	newBuffer.start = start
 	newBuffer.end = end
 	return newBuffer
 }
 
-func (b *Buffer) Release() {
+func (b *PacketBuffer) Release() {
 	if b == nil {
 		panic("cannot release a nil view")
 	}
 	b.chunk.DecRef()
-	*b = Buffer{}
+	*b = PacketBuffer{}
 	bufferPool.Put(b)
 }
 
-func (b *Buffer) Reset() {
+func (b *PacketBuffer) Reset() {
 	if b == nil {
 		panic("cannot reset a nil view")
 	}
@@ -59,44 +61,44 @@ func (b *Buffer) Reset() {
 	b.end = 0
 }
 
-func (b *Buffer) Full() bool {
+func (b *PacketBuffer) Full() bool {
 	return b == nil || b.end == len(b.chunk.data)
 }
 
-func (b *Buffer) Clone() *Buffer {
+func (b *PacketBuffer) Clone() *PacketBuffer {
 	if b == nil {
 		panic("cannot clone a nil view")
 	}
 	b.chunk.IncRef()
-	newBuffer := bufferPool.Get().(*Buffer)
+	newBuffer := bufferPool.Get().(*PacketBuffer)
 	newBuffer.chunk = b.chunk
 	newBuffer.start = b.start
 	newBuffer.end = b.end
 	return newBuffer
 }
 
-func (b *Buffer) Capacity() int {
+func (b *PacketBuffer) Capacity() int {
 	if b == nil {
 		return 0
 	}
 	return len(b.chunk.data)
 }
 
-func (b *Buffer) Size() int {
+func (b *PacketBuffer) Size() int {
 	if b == nil {
 		return 0
 	}
 	return b.end - b.start
 }
 
-func (b *Buffer) AsSlice() []byte {
+func (b *PacketBuffer) AsSlice() []byte {
 	if b.Size() == 0 {
 		return nil
 	}
 	return b.chunk.data[b.start:b.end]
 }
 
-func (b *Buffer) ToSlice() []byte {
+func (b *PacketBuffer) ToSlice() []byte {
 	if b.Size() == 0 {
 		return nil
 	}
@@ -105,21 +107,21 @@ func (b *Buffer) ToSlice() []byte {
 	return s
 }
 
-func (b *Buffer) AvailableSize() int {
+func (b *PacketBuffer) AvailableSize() int {
 	if b == nil {
 		return 0
 	}
 	return len(b.chunk.data) - b.end
 }
 
-func (b *Buffer) AvailableSlice() []byte {
+func (b *PacketBuffer) AvailableSlice() []byte {
 	if b == nil {
 		panic("cannot get available slice from a nil view")
 	}
 	return b.availableSlice()
 }
 
-func (b *Buffer) ExtendHeader(n int) []byte {
+func (b *PacketBuffer) ExtendHeader(n int) []byte {
 	if b == nil {
 		panic("cannot extend a nil view")
 	}
@@ -134,7 +136,7 @@ func (b *Buffer) ExtendHeader(n int) []byte {
 	return b.chunk.data[b.start : b.start+n]
 }
 
-func (b *Buffer) Extend(n int) []byte {
+func (b *PacketBuffer) Extend(n int) []byte {
 	if b == nil {
 		panic("cannot extend a nil view")
 	}
@@ -151,14 +153,14 @@ func (b *Buffer) Extend(n int) []byte {
 	return newSlice
 }
 
-func (b *Buffer) Advance(from int) {
+func (b *PacketBuffer) Advance(from int) {
 	if b == nil {
 		panic("cannot advance a nil view")
 	}
 	b.start += from
 }
 
-func (b *Buffer) Truncate(to int) {
+func (b *PacketBuffer) Truncate(to int) {
 	if b == nil {
 		panic("cannot truncate a nil view")
 	}

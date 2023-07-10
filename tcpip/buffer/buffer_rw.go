@@ -1,4 +1,4 @@
-package buf2
+package buffer
 
 import (
 	"crypto/rand"
@@ -8,7 +8,7 @@ import (
 	"github.com/sagernet/sing/common"
 )
 
-func (b *Buffer) Read(p []byte) (int, error) {
+func (b *PacketBuffer) Read(p []byte) (int, error) {
 	if len(p) == 0 {
 		return 0, nil
 	}
@@ -20,7 +20,7 @@ func (b *Buffer) Read(p []byte) (int, error) {
 	return n, nil
 }
 
-func (b *Buffer) Write(p []byte) (n int, err error) {
+func (b *PacketBuffer) Write(p []byte) (n int, err error) {
 	if b == nil {
 		panic("cannot write to a nil view")
 	}
@@ -39,7 +39,7 @@ func (b *Buffer) Write(p []byte) (n int, err error) {
 	return
 }
 
-func (b *Buffer) ReadAt(p []byte, off int) (int, error) {
+func (b *PacketBuffer) ReadAt(p []byte, off int) (int, error) {
 	if off < 0 || off > b.Size() {
 		return 0, fmt.Errorf("ReadAt(): offset out of bounds: want 0 < off < %d, got off=%d", b.Size(), off)
 	}
@@ -47,7 +47,7 @@ func (b *Buffer) ReadAt(p []byte, off int) (int, error) {
 	return n, nil
 }
 
-func (b *Buffer) WriteAt(p []byte, off int) (int, error) {
+func (b *PacketBuffer) WriteAt(p []byte, off int) (int, error) {
 	if b == nil {
 		panic("cannot write to a nil view")
 	}
@@ -65,7 +65,7 @@ func (b *Buffer) WriteAt(p []byte, off int) (int, error) {
 	return n, nil
 }
 
-func (b *Buffer) ReadByte() (byte, error) {
+func (b *PacketBuffer) ReadByte() (byte, error) {
 	if b.Size() == 0 {
 		return 0, io.EOF
 	}
@@ -74,7 +74,7 @@ func (b *Buffer) ReadByte() (byte, error) {
 	return p, nil
 }
 
-func (b *Buffer) WriteByte(d byte) error {
+func (b *PacketBuffer) WriteByte(d byte) error {
 	if b == nil {
 		panic("cannot write to a nil view")
 	} else if b.Full() {
@@ -89,7 +89,7 @@ func (b *Buffer) WriteByte(d byte) error {
 	return nil
 }
 
-func (b *Buffer) WriteTo(w io.Writer) (n int64, err error) {
+func (b *PacketBuffer) WriteTo(w io.Writer) (n int64, err error) {
 	if b.Size() > 0 {
 		sz := b.Size()
 		m, e := w.Write(b.AsSlice())
@@ -105,7 +105,7 @@ func (b *Buffer) WriteTo(w io.Writer) (n int64, err error) {
 	return n, nil
 }
 
-func (b *Buffer) ReadFrom0(r io.Reader) (n int64, err error) {
+func (b *PacketBuffer) ReadFrom0(r io.Reader) (n int64, err error) {
 	if b == nil {
 		panic("cannot write to a nil view")
 	}
@@ -121,17 +121,17 @@ func (b *Buffer) ReadFrom0(r io.Reader) (n int64, err error) {
 	return
 }
 
-func (b *Buffer) WriteRandom(size int) []byte {
+func (b *PacketBuffer) WriteRandom(size int) []byte {
 	buffer := b.Extend(size)
 	common.Must1(io.ReadFull(rand.Reader, buffer))
 	return buffer
 }
 
-func (b *Buffer) sharesChunk() bool {
+func (b *PacketBuffer) sharesChunk() bool {
 	return b.chunk.references.Load() > 1
 }
 
-func (b *Buffer) availableSlice() []byte {
+func (b *PacketBuffer) availableSlice() []byte {
 	if b.sharesChunk() {
 		defer b.chunk.DecRef()
 		b.chunk = b.chunk.Clone()

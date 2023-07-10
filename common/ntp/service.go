@@ -7,7 +7,7 @@ import (
 
 	"github.com/sagernet/sing/common"
 	E "github.com/sagernet/sing/common/exceptions"
-	"github.com/sagernet/sing/common/logger"
+	"github.com/sagernet/sing/common/log"
 	M "github.com/sagernet/sing/common/metadata"
 	N "github.com/sagernet/sing/common/network"
 )
@@ -20,20 +20,20 @@ type TimeService interface {
 
 type Options struct {
 	Context  context.Context
+	Logger   log.Logger
 	Server   M.Socksaddr
 	Interval time.Duration
 	Dialer   N.Dialer
-	Logger   logger.Logger
 }
 
 var _ TimeService = (*Service)(nil)
 
 type Service struct {
 	ctx         context.Context
+	logger      log.Logger
 	cancel      common.ContextCancelCauseFunc
 	server      M.Socksaddr
 	dialer      N.Dialer
-	logger      logger.Logger
 	ticker      *time.Ticker
 	clockOffset time.Duration
 }
@@ -67,10 +67,10 @@ func NewService(options Options) *Service {
 	}
 	return &Service{
 		ctx:    ctx,
+		logger: options.Logger,
 		cancel: cancel,
 		server: destination,
 		dialer: dialer,
-		logger: options.Logger,
 		ticker: time.NewTicker(interval),
 	}
 }
@@ -80,7 +80,9 @@ func (s *Service) Start() error {
 	if err != nil {
 		return E.Cause(err, "initialize time")
 	}
-	s.logger.Info("updated time: ", s.TimeFunc()().Local().Format(TimeLayout))
+	if s.logger != nil {
+		s.logger.Info("updated time: ", s.TimeFunc()().Local().Format(TimeLayout))
+	}
 	go s.loopUpdate()
 	return nil
 }
@@ -105,10 +107,12 @@ func (s *Service) loopUpdate() {
 		case <-s.ticker.C:
 		}
 		err := s.update()
-		if err == nil {
-			s.logger.Debug("updated time: ", s.TimeFunc()().Local().Format(TimeLayout))
-		} else {
-			s.logger.Warn("update time: ", err)
+		if s.logger != nil {
+			if err == nil {
+				s.logger.Debug("updated time: ", s.TimeFunc()().Local().Format(TimeLayout))
+			} else {
+				s.logger.Warn("update time: ", err)
+			}
 		}
 	}
 }

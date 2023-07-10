@@ -1,14 +1,22 @@
-package logger
+package log
 
 import (
 	"context"
 )
 
-func NOP() ContextLogger {
+func NOP() Logger {
 	return (*nopLogger)(nil)
 }
 
 type nopLogger struct{}
+
+func (f *nopLogger) WithPrefix(prefix string) Logger {
+	return (*nopLogger)(nil)
+}
+
+func (f *nopLogger) WithLevel(level Level) Logger {
+	return (*nopLogger)(nil)
+}
 
 func (f *nopLogger) Trace(args ...any) {
 }

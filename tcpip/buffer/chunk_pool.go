@@ -1,4 +1,4 @@
-package buf2
+package buffer
 
 import (
 	"fmt"
